@@ -1,0 +1,10 @@
+{
+  "description": "Manage NGO projects efficiently with interactive tools for budgeting, resource allocation, communication, and admin tasks, all in one seamless platform.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
