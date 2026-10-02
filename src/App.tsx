@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Page, PageProps, NavOpts, AppNotification } from './types';
-import { initialMessages, initialAnnouncements, initialContacts, initialUsers, initialNotifications } from './data';
+import { initialUsers, initialNotifications } from './data';
 import { LayoutDashboard, Wallet, Package, Receipt, MessageSquare, Megaphone, Users, Shield, Settings, Bell, ChevronDown, X, CheckCircle, AlertCircle, LogOut, User, Menu } from 'lucide-react';
 import ResourceDashboard from './pages/ResourceDashboard';
 import BudgetManagement from './pages/BudgetManagement';
@@ -14,6 +14,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import UserManagement from './pages/UserManagement';
 import RolesAccess from './pages/RolesAccess';
 import SettingsPage from './pages/Settings';
+import { getAnnouncements, getContacts, getMessages } from './api';
 
 const sidebarSections = [
   {
@@ -69,9 +70,19 @@ export default function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  const [messages, setMessages] = useState(initialMessages);
-  const [announcements, setAnnouncements] = useState(initialAnnouncements);
-  const [contacts] = useState(initialContacts);
+  const [messages, setMessages] = useState<import('./types').Message[]>([]);
+  const [announcements, setAnnouncements] = useState<import('./types').Announcement[]>([]);
+  const [contacts, setContacts] = useState<import('./types').Contact[]>([]);
+
+  useEffect(() => {
+    Promise.all([getMessages(), getAnnouncements(), getContacts()])
+      .then(([loadedMessages, loadedAnnouncements, loadedContacts]) => {
+        setMessages(loadedMessages);
+        setAnnouncements(loadedAnnouncements);
+        setContacts(loadedContacts);
+      })
+      .catch(error => toast(error instanceof Error ? error.message : 'Failed to load Communication data', true));
+  }, []);
   const [users, setUsers] = useState(initialUsers);
 
   const navigate = (page: Page, opts: NavOpts = {}) => {

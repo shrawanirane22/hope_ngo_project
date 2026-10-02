@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { PageProps, Message } from '../types';
 import { Plus, X, Reply, Send, Inbox, SendHorizonal, FileText, Archive, Search, Paperclip } from 'lucide-react';
+import { createMessage, markMessageRead, replyToMessage } from '../api';
 
 export default function Messages({ messages, setMessages, toast, navOpts }: PageProps) {
   const [folder, setFolder] = useState<Message['folder']>((navOpts.folder as Message['folder']) || 'inbox');
@@ -30,71 +31,68 @@ export default function Messages({ messages, setMessages, toast, navOpts }: Page
     return matchFolder && matchSearch;
   });
 
-  const handleSelect = (m: Message) => {
+  const handleSelect = async (m: Message) => {
     setSelected(m);
     setShowReply(false);
     setReplyText('');
-    if (!m.read) setMessages(prev => prev.map(x => x.id === m.id ? { ...x, read: true } : x));
+    if (!m.read) {
+      try {
+        const updated = await markMessageRead(m.id);
+        setMessages(prev => prev.map(x => x.id === updated.id ? updated : x));
+        setSelected(updated);
+      } catch (error) {
+        toast(error instanceof Error ? error.message : 'Failed to mark message as read', true);
+      }
+    }
   };
 
-  const handleReply = () => {
-    if (!replyText.trim()) return;
-    const reply: Message = {
-      id: `M${Date.now()}`,
-      sender: 'Admin',
-      initials: 'AD',
-      recipient: selected?.sender || '',
-      subject: `Re: ${selected?.subject}`,
-      preview: replyText.slice(0, 60),
-      body: replyText,
-      time: 'Just now',
-      read: true,
-      folder: 'sent',
-    };
-    setMessages(prev => [...prev, reply]);
-    setShowReply(false);
-    setReplyText('');
-    toast('Message sent successfully');
+  const handleReply = async () => {
+    if (!replyText.trim() || !selected) return;
+    try {
+      const reply = await replyToMessage(selected.id, replyText);
+      setMessages(prev => [reply, ...prev]);
+      setShowReply(false);
+      setReplyText('');
+      toast('Message sent successfully');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Failed to send reply', true);
+    }
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!compose.to || !compose.subject || !compose.body) return;
-    const msg: Message = {
-      id: `M${Date.now()}`,
-      sender: 'Admin',
-      initials: 'AD',
-      recipient: compose.to,
-      subject: compose.subject,
-      preview: compose.body.slice(0, 60),
-      body: compose.body,
-      time: 'Just now',
-      read: true,
-      folder: 'sent',
-    };
-    setMessages(prev => [...prev, msg]);
-    setShowCompose(false);
-    setCompose({ to: '', subject: '', body: '', attachment: '' });
-    toast('Message sent successfully');
+    try {
+      const msg = await createMessage({
+        recipient: compose.to,
+        subject: compose.subject,
+        body: compose.body,
+        folder: 'sent',
+      });
+      setMessages(prev => [msg, ...prev]);
+      setShowCompose(false);
+      setCompose({ to: '', subject: '', body: '', attachment: '' });
+      toast('Message sent successfully');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Failed to send message', true);
+    }
   };
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
     if (!compose.subject && !compose.body) return;
-    const draft: Message = {
-      id: `M${Date.now()}`,
-      sender: 'Admin',
-      initials: 'AD',
-      recipient: compose.to,
-      subject: compose.subject || '(No subject)',
-      preview: compose.body.slice(0, 60),
-      body: compose.body,
-      time: 'Just now',
-      read: true,
-      folder: 'drafts',
-    };
-    setMessages(prev => [...prev, draft]);
-    setShowCompose(false);
-    setCompose({ to: '', subject: '', body: '', attachment: '' });
-    toast('Draft saved');
+    try {
+      const draft = await createMessage({
+        recipient: compose.to,
+        subject: compose.subject || '(No subject)',
+        body: compose.body,
+        folder: 'drafts',
+      });
+      setMessages(prev => [draft, ...prev]);
+      setShowCompose(false);
+      setCompose({ to: '', subject: '', body: '', attachment: '' });
+      toast('Draft saved');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Failed to save draft', true);
+    }
   };
 
   return (

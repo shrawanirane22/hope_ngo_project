@@ -1,13 +1,15 @@
-import calendar
-from datetime import date, datetime
-
 from flask import Flask, jsonify, request, g
 from flask_cors import CORS
 
 from database import get_db, init_db
+from communication import communication
+
 
 app = Flask(__name__)
-CORS(app)  
+app.register_blueprint(communication)
+
+
+CORS(app) 
 
 BUDGET_STATUSES = ['On Track', 'At Risk', 'Over Budget']
 RESOURCE_STATUSES = ['Available', 'Assigned', 'Maintenance']

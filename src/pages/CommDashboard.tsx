@@ -1,12 +1,22 @@
 import type { PageProps } from '../types';
-import { commActivityData } from '../data';
+import { useEffect, useState } from 'react';
+import { getCommunicationDashboard, type CommunicationDashboard } from '../api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { ArrowRight } from 'lucide-react';
 
-export default function CommDashboard({ navigate, messages, announcements, contacts }: PageProps) {
-  const unread = messages.filter(m => !m.read && m.folder === 'inbox').length;
-  const inboxCount = messages.filter(m => m.folder === 'inbox').length;
-  const publishedAnn = announcements.filter(a => a.status === 'Published').length;
+export default function CommDashboard({ navigate, messages, announcements, contacts, toast }: PageProps) {
+  const [dashboard, setDashboard] = useState<CommunicationDashboard | null>(null);
+
+  useEffect(() => {
+    getCommunicationDashboard().then(setDashboard).catch(error => toast(error instanceof Error ? error.message : 'Failed to load Communication dashboard', true));
+  }, [messages, announcements, contacts]);
+
+  const unread = dashboard?.unread_messages ?? messages.filter(m => !m.read && m.folder === 'inbox').length;
+  const inboxCount = dashboard?.total_messages ?? messages.filter(m => m.folder === 'inbox').length;
+  const publishedAnn = dashboard?.published_announcements ?? announcements.filter(a => a.status === 'Published').length;
+  const activityData = dashboard?.activity ?? [];
+  const recentMessages = dashboard?.recent_messages ?? messages.filter(m => m.folder === 'inbox').slice(0, 4);
+  const recentAnnouncements = dashboard?.recent_announcements ?? announcements.slice(0, 4);
 
   return (
     <div className="space-y-5">
@@ -26,7 +36,7 @@ export default function CommDashboard({ navigate, messages, announcements, conta
           <p className="text-xs text-slate-400 mb-4">Messages and announcements this week</p>
           <div style={{ height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={commActivityData} barSize={12}>
+              <BarChart data={activityData} barSize={12}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                 <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#94A3B8' }} />
                 <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} />
@@ -48,7 +58,7 @@ export default function CommDashboard({ navigate, messages, announcements, conta
             </button>
           </div>
           <div className="space-y-3">
-            {messages.filter(m => m.folder === 'inbox').slice(0, 4).map(m => (
+            {recentMessages.map(m => (
               <button key={m.id} onClick={() => navigate('messages')} className="w-full flex gap-3 items-start hover:bg-slate-50 p-2 rounded-lg -mx-2 text-left">
                 <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
                   <span className="text-white text-xs font-semibold">{m.initials}</span>
@@ -76,7 +86,7 @@ export default function CommDashboard({ navigate, messages, announcements, conta
           </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {announcements.map(a => (
+          {recentAnnouncements.map(a => (
             <button key={a.id} onClick={() => navigate('announcements')} className="text-left p-4 border border-slate-100 rounded-xl hover:border-blue-200 hover:bg-blue-50/30 transition-colors">
               <div className="flex items-center justify-between mb-2">
                 <AnnBadge status={a.status} />

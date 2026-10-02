@@ -1,4 +1,4 @@
-import type { Budget, Resource, Expense, DashboardData } from './types';
+import type { Budget, Resource, Expense, DashboardData, Message, Announcement, Contact } from './types';
 
 const API_URL = 'http://127.0.0.1:5000/api';
 
@@ -162,7 +162,6 @@ export async function getDashboard(): Promise<DashboardData> {
 
 // ---------- Display helpers ----------
 
-// '2025-01-15' -> '15 Jan 2025'
 export function formatDate(isoDate: string) {
   const [year, month, day] = isoDate.slice(0, 10).split('-');
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -171,3 +170,121 @@ export function formatDate(isoDate: string) {
 
 // 1 -> 'EXP-001'
 export const expenseCode = (id: number) => `EXP-${String(id).padStart(3, '0')}`;
+
+
+// ---------- Communication ----------
+
+const toMessage = (row: any): Message => ({
+  id: row.id,
+  sender: row.sender,
+  initials: row.initials || 'AD',
+  recipient: row.recipient,
+  subject: row.subject,
+  preview: row.preview || '',
+  body: row.body || '',
+  time: row.time || '',
+  read: Boolean(row.read),
+  folder: row.folder,
+});
+
+const toAnnouncement = (row: any): Announcement => ({
+  id: row.id,
+  title: row.title,
+  audience: row.audience,
+  date: row.date,
+  status: row.status,
+  description: row.description || '',
+});
+
+const toContact = (row: any): Contact => ({
+  id: row.id,
+  name: row.name,
+  initials: row.initials || '',
+  category: row.category,
+  email: row.email,
+  phone: row.phone || '',
+  organization: row.organization || '',
+  color: row.color || 'bg-blue-500',
+});
+
+export async function getMessages(folder?: Message['folder']): Promise<Message[]> {
+  const rows = await request(folder ? `/messages?folder=${encodeURIComponent(folder)}` : '/messages');
+  return rows.map(toMessage);
+}
+
+export async function createMessage(input: {
+  recipient: string;
+  subject: string;
+  body: string;
+  folder?: 'sent' | 'drafts';
+}): Promise<Message> {
+  const row = await request('/messages', { method: 'POST', body: JSON.stringify(input) });
+  return toMessage(row);
+}
+
+export async function markMessageRead(id: string): Promise<Message> {
+  const row = await request(`/messages/${id}/read`, { method: 'POST' });
+  return toMessage(row);
+}
+
+export async function replyToMessage(id: string, body: string): Promise<Message> {
+  const row = await request(`/messages/${id}/reply`, { method: 'POST', body: JSON.stringify({ body }) });
+  return toMessage(row);
+}
+
+export async function deleteMessage(id: string) {
+  return request(`/messages/${id}`, { method: 'DELETE' });
+}
+
+export async function getAnnouncements(): Promise<Announcement[]> {
+  const rows = await request('/announcements');
+  return rows.map(toAnnouncement);
+}
+
+export async function createAnnouncement(input: {
+  title: string;
+  audience: string;
+  message: string;
+  date?: string;
+  status: Announcement['status'];
+}): Promise<Announcement> {
+  const row = await request('/announcements', { method: 'POST', body: JSON.stringify(input) });
+  return toAnnouncement(row);
+}
+
+export async function updateAnnouncement(a: Announcement): Promise<Announcement> {
+  const row = await request(`/announcements/${a.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ title: a.title, audience: a.audience, message: a.description, date: a.date, status: a.status }),
+  });
+  return toAnnouncement(row);
+}
+
+export async function deleteAnnouncement(id: string) {
+  return request(`/announcements/${id}`, { method: 'DELETE' });
+}
+
+export async function getContacts(): Promise<Contact[]> {
+  const rows = await request('/contacts');
+  return rows.map(toContact);
+}
+
+export interface CommunicationDashboard {
+  total_messages: number;
+  unread_messages: number;
+  announcements: number;
+  published_announcements: number;
+  contacts: number;
+  activity: { date: string; day: string; messages: number; announcements: number }[];
+  recent_messages: Message[];
+  recent_announcements: Announcement[];
+}
+
+export async function getCommunicationDashboard(): Promise<CommunicationDashboard> {
+  const d = await request('/communication/dashboard');
+  return {
+    ...d,
+    recent_messages: d.recent_messages.map(toMessage),
+    recent_announcements: d.recent_announcements.map(toAnnouncement),
+  };
+}

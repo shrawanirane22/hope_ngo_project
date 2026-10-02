@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { PageProps, Announcement } from '../types';
 import { Plus, X, Eye, Pencil, Trash2 } from 'lucide-react';
+import { createAnnouncement, deleteAnnouncement, updateAnnouncement } from '../api';
 
 export default function Announcements({ announcements, setAnnouncements, toast }: PageProps) {
   const [showCreate, setShowCreate] = useState(false);
@@ -16,49 +17,69 @@ export default function Announcements({ announcements, setAnnouncements, toast }
     scheduled: announcements.filter(a => a.status === 'Scheduled').length,
   };
 
-  const handlePublish = () => {
+  const resetForm = () => {
+    setForm({ title: '', audience: '', message: '', date: '', status: 'Draft' });
+  };
+
+  const handlePublish = async () => {
     if (!form.title || !form.message) return;
-    const newAnn: Announcement = {
-      id: `AN${String(announcements.length + 1).padStart(3, '0')}`,
-      title: form.title,
-      audience: form.audience || 'All Staff',
-      date: form.date || new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-      status: 'Published',
-      description: form.message,
-    };
-    setAnnouncements(prev => [newAnn, ...prev]);
-    setShowCreate(false);
-    setForm({ title: '', audience: '', message: '', date: '', status: 'Draft' });
-    toast('Announcement published successfully');
+    try {
+      const newAnn = await createAnnouncement({
+        title: form.title,
+        audience: form.audience || 'All Staff',
+        message: form.message,
+        date: form.date || undefined,
+        status: 'Published',
+      });
+      setAnnouncements(prev => [newAnn, ...prev]);
+      setShowCreate(false);
+      resetForm();
+      toast('Announcement published successfully');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Failed to publish announcement', true);
+    }
   };
 
-  const handleDraft = () => {
+  const handleDraft = async () => {
     if (!form.title) return;
-    const newAnn: Announcement = {
-      id: `AN${String(announcements.length + 1).padStart(3, '0')}`,
-      title: form.title,
-      audience: form.audience || 'All Staff',
-      date: form.date || new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-      status: 'Draft',
-      description: form.message,
-    };
-    setAnnouncements(prev => [newAnn, ...prev]);
-    setShowCreate(false);
-    setForm({ title: '', audience: '', message: '', date: '', status: 'Draft' });
-    toast('Draft saved successfully');
+    try {
+      const newAnn = await createAnnouncement({
+        title: form.title,
+        audience: form.audience || 'All Staff',
+        message: form.message,
+        date: form.date || undefined,
+        status: 'Draft',
+      });
+      setAnnouncements(prev => [newAnn, ...prev]);
+      setShowCreate(false);
+      resetForm();
+      toast('Draft saved successfully');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Failed to save draft', true);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setAnnouncements(prev => prev.filter(a => a.id !== id));
-    setDeleteConfirm(null);
-    toast('Announcement deleted');
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteAnnouncement(id);
+      setAnnouncements(prev => prev.filter(a => a.id !== id));
+      setDeleteConfirm(null);
+      toast('Announcement deleted');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Failed to delete announcement', true);
+    }
   };
 
-  const handleEditSave = () => {
+  const handleEditSave = async () => {
     if (!editAnn) return;
-    setAnnouncements(prev => prev.map(a => a.id === editAnn.id ? editAnn : a));
-    setEditAnn(null);
-    toast('Announcement updated successfully');
+    try {
+      const updated = await updateAnnouncement(editAnn);
+      setAnnouncements(prev => prev.map(a => a.id === updated.id ? updated : a));
+      setEditAnn(null);
+      toast('Announcement updated successfully');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Failed to update announcement', true);
+    }
   };
 
   return (
